@@ -148,7 +148,7 @@ def buy_us_stock(order: OrderRequestUS):
             "OVRS_EXCG_CD": order.exchange,
             "PDNO": order.code,
             "ORD_QTY": str(order.qty),
-            "ORD_UNPR": str(order.price),
+            "ORD_UNPR": f"{order.price:.2f}",
             "ORD_DVSN": "00",
             "ORD_SVR_DVSN_CD": "0",
         }
