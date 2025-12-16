@@ -1,22 +1,11 @@
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import requests
 import json
+from configs import ACCESS_TOKEN, APP_KEY, APP_SECRET, URL_BASE, CANO, ACNT_PRDT_CD
 
 app = FastAPI()
-
-# === [사용자 설정 정보] ===
-# 본인의 정보를 정확히 입력하세요!
-APP_KEY = "PSPMgzIS8seIx54DCJyqk0p7oTd4IpugLx4D"
-APP_SECRET = "8XGCUgVJs8v47DE7/fXKcqj9e5F71FA9jiof6ucxwQR+L7bsBD3SQDEq6AMQM1gDpr78U8HeZSOpEgiM1TgugdvE5l2MLl15ZiIcPhs6rFGc4hhtyhX1ir3AQjh305Soe/Uav5pmcokKQqVPWL38dIpQ5g6HnymEwqMQjC8rTcxfnwitsG0="
-CANO = "50157747"
-ACNT_PRDT_CD = "01"         # 계좌번호 뒤 2자리 (보통 01)
-
-URL_BASE = "https://openapivts.koreainvestment.com:29443" # 모의투자
-
-# === [전역 변수: 토큰 저장소] ===
-# 서버가 켜져있는 동안 발급받은 토큰을 여기에 저장해둡니다.
-ACCESS_TOKEN = None 
 
 # === [데이터 모델 정의] ===
 class OrderRequestUS(BaseModel):
@@ -53,14 +42,24 @@ def get_access_token():
     else:
         raise Exception(f"❌ 토큰 발급 실패! 원인: {data.get('error_description', data)}")
 
-# === [서버 시작 이벤트] ===
-# 서버(Uvicorn)가 켜질 때 딱 1번 실행됩니다.
-@app.on_event("startup")
-def startup_event():
+# === [변경됨: Lifespan(수명 주기) 관리] ===
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # [시작 시 실행될 로직]
+    print("🚀 서버가 시작되었습니다. 토큰 발급을 시도합니다.")
     try:
-        get_access_token() # 서버 켜자마자 토큰부터 받아놓음
+        get_access_token() # 서버 켜자마자 토큰 발급
     except Exception as e:
         print(f"⚠️ 시작 시 토큰 발급 실패: {e}")
+    
+    yield # 이 시점에서 서버가 계속 실행됩니다 (API 요청 처리)
+    
+    # [종료 시 실행될 로직] (필요하면 여기에 작성)
+    print("👋 서버가 종료됩니다.")
+
+# === [앱 생성] ===
+# 위에서 만든 lifespan 함수를 여기에 등록합니다.
+app = FastAPI(lifespan=lifespan)
 
 # === [기능 1: 주식 현재가 조회] ===
 @app.get("/price/{code}")
